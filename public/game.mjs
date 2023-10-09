@@ -33,6 +33,7 @@ class Game extends Two {
 
     this.roomId = gameWs.roomId
     this.joypadUrl = gameWs.joypadUrl
+    this.joypadUrlQrCode = gameWs.joypadUrlQrCode
     this.sendInput = gameWs.sendInput
 
     this.players = {}
@@ -82,6 +83,8 @@ const ouchAud = addToLoads(new GameAudio(urlAbsPath("assets/ouch.opus"), { volum
 const coinAud = addToLoads(new GameAudio(urlAbsPath("assets/coin.opus"), { volume: 1 }))
 
 
+
+
 class GameScene extends Group {
 
   constructor() {
@@ -112,7 +115,7 @@ class GameScene extends Group {
       addTo(this.notifs, new CountDown(3, () => this.setStep("GAME")))
       game.sendInput({ step: "GAME" })
     } else if(step === "GAME") {
-      this.scoresPanel = addTo(this.notifs, new ScoresPanel(this.heros.children, 5))
+      this.scoresPanel = addTo(this.notifs, new ScoresPanel(this.heros.children))
     } else if(step === "VICTORY") {
       this.addVictoryTexts()
       game.sendInput({ step: "VICTORY" })
@@ -157,20 +160,24 @@ class GameScene extends Group {
 
   addIntroTexts() {
     this.introTexts = addTo(this.notifs, new Group())
-    const textArgs = { size: 30, fill: "black", alignment: "center", baseline: "top" }
+    const textArgs = { size: 30, fill: "black", alignment: "center" }
     addTo(this.introTexts, new Two.Text(
       "BASIC EXAMPLE",
-      WIDTH / 2, HEIGHT / 3,
+      WIDTH / 2, HEIGHT / 2 - 200,
       { ...textArgs, size: 60 }
     ))
     addTo(this.introTexts, new Two.Text(
       "Join the game:",
-      WIDTH / 2, HEIGHT / 2,
+      WIDTH / 2, HEIGHT / 2 - 130,
       { ...textArgs, size: 40 }
     ))
+    addTo(this.introTexts, new Two.Sprite(
+      new Two.Texture(game.joypadUrlQrCode),
+      WIDTH / 2, HEIGHT / 2,
+    )).scale = 200 / 500
     addTo(this.introTexts, new Two.Text(
       game.joypadUrl,
-      WIDTH / 2, HEIGHT / 2 + 50,
+      WIDTH / 2, HEIGHT / 2 + 130,
       textArgs
     ))
   }
@@ -540,9 +547,9 @@ class CountDown extends Group {
 
 class ScoresPanel extends Group {
 
-  constructor(heros, maxNbScores) {
+  constructor(heros) {
     super()
-    this.nbScores = min(maxNbScores, heros.length)
+    this.nbScores = min(10, heros.length)
     this.heros = heros
 
     this.translation.x = 10
