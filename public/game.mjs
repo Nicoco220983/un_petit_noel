@@ -110,12 +110,13 @@ class GameScene extends Group {
       this.syncPlayers()
       this.addIntroTexts()
       music.play({ loop: true })
-    } else if(step === "COUNTDOWN") {
-      this.introTexts.remove()
-      addTo(this.notifs, new CountDown(3, () => this.setStep("GAME")))
-      game.sendInput({ step: "GAME" })
     } else if(step === "GAME") {
+      this.introTexts.remove()
+      addTo(this.notifs, new CountDown(3))
+      this.nextStarTime = this.time + 3
+      this.nextMonsterTime = this.time + 3
       this.scoresPanel = addTo(this.notifs, new ScoresPanel(this.heros.children))
+      game.sendInput({ step: "GAME" })
     } else if(step === "VICTORY") {
       this.addVictoryTexts()
       game.sendInput({ step: "VICTORY" })
@@ -123,23 +124,25 @@ class GameScene extends Group {
   }
 
   update(time) {
+    this.startTime ||= time
+    this.time = time - this.startTime
     const { step } = this
     if(step === "LOADING") {
       if(checkAllLoadsDone()) this.setStep("INTRO")
     }
-    if(step === "INTRO" || step === "COUNTDOWN" || step === "GAME") {
-      this.heros.update(time)
+    if(step === "INTRO" || step === "GAME") {
+      this.heros.update(this.time)
       this.checkHerosHerosHit()
     }
     if(step === "GAME") {
-      this.monsters.update(time)
-      this.stars.update(time)
-      this.mayAddStar(time)
-      this.mayAddMonster(time)
-      this.checkHerosStarsHit(time)
-      this.checkHerosMonstersHit(time)
+      this.monsters.update(this.time)
+      this.stars.update(this.time)
+      this.mayAddStar()
+      this.mayAddMonster()
+      this.checkHerosStarsHit()
+      this.checkHerosMonstersHit()
     }
-    this.notifs.update(time)
+    this.notifs.update(this.time)
   }
 
   addLoadingTexts() {
@@ -202,25 +205,23 @@ class GameScene extends Group {
     this.getHero(playerId).remove()
   }
 
-  mayAddStar(time) {
-    this.nextStarTime ||= 0
-    if(time > this.nextStarTime) {
+  mayAddStar() {
+    if(this.time > this.nextStarTime) {
       addTo(this.stars, new Star(random() > .5, HEIGHT * random()))
-      this.nextStarTime = time + 1
+      this.nextStarTime = this.time + 1
     }
   }
 
-  mayAddMonster(time) {
-    this.nextMonsterTime ||= 0
-    if(time > this.nextMonsterTime) {
+  mayAddMonster() {
+    if(this.time > this.nextMonsterTime) {
       addTo(this.monsters, new Monster(random() > .5, HEIGHT * random()))
-      this.nextMonsterTime = time + 5
+      this.nextMonsterTime = this.time + 5
     }
   }
 
-  checkHerosStarsHit(time) {
+  checkHerosStarsHit() {
     for(const hero of this.heros.children) {
-      if(!hero.isParalysed(time)) {
+      if(!hero.isParalysed(this.time)) {
         for(const star of this.stars.children) {
           if(checkHit(hero, star)) {
             addTo(this.notifs, new Notif(
@@ -241,9 +242,9 @@ class GameScene extends Group {
     }
   }
 
-  checkHerosMonstersHit(time) {
+  checkHerosMonstersHit() {
     for(const hero of this.heros.children) {
-      if(!hero.isParalysed(time)) {
+      if(!hero.isParalysed(this.time)) {
         for(const monster of this.monsters.children) {
           if(checkHit(hero, monster)) {
             addTo(this.notifs, new Notif(
@@ -251,10 +252,10 @@ class GameScene extends Group {
               hero.translation.x, hero.translation.y,
               { fill: "red" }
             ))
-            hero.onMonsterHit(time)
+            hero.onMonsterHit(this.time)
             this.scoresPanel.syncScores()
-		  }
-		}
+          }
+        }
       }
     }
   }
@@ -304,7 +305,7 @@ class GameScene extends Group {
     if(this.step === "INTRO") {
       let allReady = true
       for(const h of this.heros.children) allReady &= h.ready
-      if(allReady) this.setStep("COUNTDOWN")
+      if(allReady) this.setStep("GAME")
     }
   }
 
