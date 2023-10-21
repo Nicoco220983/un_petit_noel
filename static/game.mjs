@@ -177,7 +177,7 @@ class GameScene extends Group {
     addTo(this.introTexts, new Two.Sprite(
       new Two.Texture(game.joypadUrlQrCode),
       WIDTH / 2, HEIGHT / 2,
-    )).scale = 200 / 500
+    )).scale = 200 / 200
     addTo(this.introTexts, new Two.Text(
       game.joypadUrl,
       WIDTH / 2, HEIGHT / 2 + 130,
