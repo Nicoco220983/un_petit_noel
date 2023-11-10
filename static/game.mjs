@@ -43,7 +43,7 @@ class Game extends Two {
   
     this.bind("update", (frameCount, timeDelta) => {
       const time = frameCount / FPS
-      this._scene.update(time)
+      this.mainScene.update(time)
     })
     
     this.play()
@@ -52,7 +52,7 @@ class Game extends Two {
   syncPlayers(players) {
     try {
       this.players = players
-      this._scene.syncPlayers()
+      this.mainScene.syncPlayers()
     } catch(err) {
       console.log(err)
     }
@@ -60,15 +60,15 @@ class Game extends Two {
 
   onJoypadInput(playerId, kwargs) {
     try {
-      this._scene.onJoypadInput(playerId, kwargs)
+      this.mainScene.onJoypadInput(playerId, kwargs)
     } catch(err) {
       console.log(err)
     }
   }
 
   setScene(scn) {
-    if(this._scene !== undefined) this._scene.remove()
-    this._scene = addTo(this.sceneGroup, scn)
+    if(this.mainScene !== undefined) this.mainScene.remove()
+    this.mainScene = addTo(this.sceneGroup, scn)
   }
 }
 
@@ -109,7 +109,7 @@ class GameScene extends Group {
       this.addBackground()
       this.syncPlayers()
       this.addIntroTexts()
-      music.play({ loop: true })
+      music.currentTime = 0; music.play({ loop: true })
     } else if(step === "GAME") {
       this.introTexts.remove()
       addTo(this.notifs, new CountDown(3))
@@ -187,7 +187,7 @@ class GameScene extends Group {
 
   syncPlayers() {
     if(this.step === "LOADING") return
-    for(const playerId in game.players) if(!this.getHero(playerId)) this.addHero(playerId)
+    for(const playerId in game.players) if(this.step === "INTRO" && !this.getHero(playerId)) this.addHero(playerId)
     for(const hero of this.heros.children) if(!game.players[hero.playerId]) this.rmHero(hero.playerId)
   }
   addHero(playerId) {
