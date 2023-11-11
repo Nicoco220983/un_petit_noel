@@ -151,6 +151,7 @@ class JoypadScene extends Group {
 
   update(time) {
     if(!this.chechReady()) return
+    super.update(time)
     if(this.step === "VICTORY") {
       this.timeForRestartButton ||= time + 3
       if(time > this.timeForRestartButton) this.restartButton.visible = true

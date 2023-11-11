@@ -44,7 +44,7 @@ function urlAbsPath(relPath){
 function fitTwoToEl(two, wrapperEl, kwargs) {
 
     const { width, height } = two
-    const backgroundColor = (kwargs && kwargs.backgroundColor) || "black"
+    const backgroundColor = (kwargs && kwargs.background) || "black"
     const parentEl = wrapperEl.parentElement
 
     wrapperEl.style.aspectRatio = `${width}/${height}`
@@ -84,13 +84,15 @@ function newPointer(two) {
     }
     for(const key of ["mousedown", "touchstart"]) {
         el.addEventListener(key, evt => assign(pointer, {
-        isDown: true,
-        ..._getMousePos(el, evt),
+            isDown: true,
+            ..._getMousePos(el, evt),
         }))
     }
-    for(const key of ["mouseup", "touchend"]) {
-        el.addEventListener(key, () => pointer.isDown = false)
-    }
+    el.addEventListener("mouseup", () => pointer.isDown = false)
+    el.addEventListener("touchend", () => {
+        if(evt.touches.length >= 2) return
+        pointer.isDown = false
+    })
 
     return pointer
 }
@@ -147,11 +149,14 @@ function cloneCanvas(canvas, kwargs) {
     const nbCols = (kwargs && kwargs.col && kwargs.col[1]) || 1
     const numRow = (kwargs && kwargs.row && kwargs.row[0]) || 0
     const nbRows = (kwargs && kwargs.row && kwargs.row[1]) || 1
+    const dx = (kwargs && kwargs.dx) || 0
+    const dy = (kwargs && kwargs.dy) || 0
     const width = canvas.width * scaleX / nbCols
     const height = canvas.height * scaleY / nbRows
     const res = document.createElement("canvas")
     assign(res, { width, height })
     const ctx = res.getContext("2d")
+    ctx.save()
     if(flipX) {
         ctx.translate(width, 0)
         ctx.scale(-1, 1)
@@ -160,11 +165,12 @@ function cloneCanvas(canvas, kwargs) {
         ctx.translate(0, height)
         ctx.scale(1, -1)
     }
-    if(numCol !== 0) ctx.translate(-width * numCol, 0)
-    if(numRow !== 0) ctx.translate(0, -height * numRow)
+    if(numCol !== 0 || dx !== 0) ctx.translate(dx - width * numCol, 0)
+    if(numRow !== 0 || dy !== 0) ctx.translate(0, dy - height * numRow)
     if(scaleX !== 1) ctx.scale(scaleX, 1)
     if(scaleY !== 1) ctx.scale(1, scaleY)
     ctx.drawImage(canvas, 0, 0)
+    ctx.restore()
     return res
 }
 
@@ -175,9 +181,10 @@ function colorizeCanvas(canvas, color) {
     colorCtx.globalCompositeOperation = "destination-in"
     colorCtx.drawImage(canvas, 0, 0, width, height)
     const ctx = canvas.getContext("2d")
+    ctx.save()
     ctx.globalCompositeOperation = "color"
     ctx.drawImage(colorCanvas, 0, 0, width, height)
-    ctx.globalCompositeOperation = "source-over"
+    ctx.restore()
 }
 
 function addCanvas(canvas, canvas2, x=0, y=0) {
