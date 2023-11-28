@@ -151,8 +151,8 @@ function cloneCanvas(canvas, kwargs) {
     const nbRows = (kwargs && kwargs.row && kwargs.row[1]) || 1
     const dx = (kwargs && kwargs.dx) || 0
     const dy = (kwargs && kwargs.dy) || 0
-    const width = canvas.width * scaleX / nbCols
-    const height = canvas.height * scaleY / nbRows
+    const width = (kwargs && kwargs.width) || canvas.width * scaleX / nbCols
+    const height = (kwargs && kwargs.height) || canvas.height * scaleY / nbRows
     const res = document.createElement("canvas")
     assign(res, { width, height })
     const ctx = res.getContext("2d")

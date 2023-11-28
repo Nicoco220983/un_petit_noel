@@ -1,4 +1,5 @@
-const { min } = Math
+const { assign } = Object
+const { floor, min } = Math
 
 import Two from './two.min.mjs'
 import * as utils from './utils.mjs'
@@ -229,16 +230,66 @@ class ArrowButton extends Two.ImageSequence {
 }
 
 
-class ReadyButton extends Two.Sprite {
-  constructor(scn, x, y) {
-    super(
-      urlAbsPath("assets/ready_buttons.png"),
-      x, y,
-      2, 1,
+const buttonCanvas = {
+  base: addToLoads(utils.newCanvasFromSrc(urlAbsPath("assets/button.png"))),
+  get: function(width, color, clicked) {
+    const key = `trans:${width}:${color}:${clicked}`
+    if(!this[key]) {
+      this[key] = document.createElement("canvas")
+      assign(this[key], { width, height: 100 })
+      const ctx = this[key].getContext("2d")
+      const sx = clicked ? 150 : 0
+      ctx.drawImage(this.base, sx, 0, 50, 100, 0, 0, 50, 100)
+      for(let i=0; i<floor((width-100)/50); ++i)
+        ctx.drawImage(this.base, sx+50, 0, 50, 100, (i+1)*50, 0, 50, 100)
+      ctx.drawImage(this.base, sx+50, 0, 50, 100, width-100, 0, 50, 100)
+      ctx.drawImage(this.base, sx+100, 0, 50, 100, width-50, 0, 50, 100)
+      utils.colorizeCanvas(this[key], color)
+    }
+    return this[key]
+  }
+}
+
+
+class TextButton extends Group {
+  constructor(text, color, x, y, kwargs) {
+    super()
+    const textColor = kwargs && kwargs.textColor || "white"
+    const textSize = kwargs && kwargs.textSize || 40
+    assign(this.translation, { x, y })
+    const textSprite = new Two.Text(
+      text, 0, 5, { fill: textColor, size: textSize, weight: 1000 }
     )
-    this.scale = 250 / 250
+    const { width: txtWidth, height: textHeight } = Two.Text.Measure(textSprite)
+    this.buttonSprite = addTo(this, new Two.ImageSequence([
+      new Two.Texture(buttonCanvas.get(txtWidth+75, color, false)),
+      new Two.Texture(buttonCanvas.get(txtWidth+75, color, true)),
+    ]))
+    addTo(this, textSprite)
+    this.time = 0
+    this.lastClickTime = -1
+  }
+
+  click(pointer) {
+    this.lastClickTime = this.time
+  }
+
+  update(time) {
+    this.time = time
+    this.buttonSprite.index = (time < this.lastClickTime + .1) ? 1 : 0
+  }
+}
+
+
+class ReadyButton extends Group {
+  constructor(scn, x, y) {
+    super()
     this.scene = scn
     this.joypad = scn.joypad
+    assign(this.translation, { x, y })
+    this.notReadyButton = addTo(this, new TextButton("READY ?", "yellow", 0, 0))
+    this.readyButton = addTo(this, new TextButton("READY ✔️", "green", 0, 0))
+    this.readyButton.visible = false
     this.ready = false
   }
   click(pointer) {
@@ -249,22 +300,20 @@ class ReadyButton extends Two.Sprite {
   }
   setReady(val) {
     this.ready = val
-    this.index = this.ready ? 1 : 0
+    this.notReadyButton.visible = !this.ready
+    this.readyButton.visible = this.ready
   }
 }
 
 
-class RestartButton extends Two.Sprite {
+class RestartButton extends TextButton {
   constructor(scn, x, y) {
-    super(
-      urlAbsPath("assets/restart_button.png"),
-      x, y,
-    )
-    this.scale = 250 / 250
+    super("RESTART", "yellow", x, y)
     this.scene = scn
     this.joypad = scn.joypad
   }
   click(pointer) {
+    super.click(pointer)
     if(!pointer.prevIsDown) {
       this.joypad.sendInput({ restart: true })
     }

@@ -1,4 +1,5 @@
-const { abs, floor, min, max, atan2, PI, random } = Math
+const { assign } = Object
+const { abs, floor, min, max, sqrt, atan2, PI, random } = Math
 
 import Two from './two.min.mjs'
 import * as utils from './utils.mjs'
@@ -9,7 +10,17 @@ const HEIGHT = 600
 const FPS = 60  // hardcoded in Twojs
 const BACKGROUND_COLOR = "#111"
 
+const scaleGame = nbPlayers => min(1, sqrt(4/(nbPlayers+2)))
+
+const HERO_SIZE = nbPlayers => 80 * scaleGame(nbPlayers)
+const HERO_SPEED = nbPlayers => 200 * scaleGame(nbPlayers)
 const HERO_PARALYSIS_DUR = 2
+
+const MONSTER_SIZE = 80
+
+const STAR_SIZE = nbPlayers => 80 * scaleGame(nbPlayers)
+const STAR_SPEED = nbPlayers => 100 * scaleGame(nbPlayers)
+
 const VICTORY_SCORE = 20
 
 
@@ -88,6 +99,8 @@ class GameScene extends Group {
   constructor(game) {
     super()
     this.game = game
+
+    this.nbPlayers = 0
 
     this.background = addTo(this, new Group())
     this.stars = addTo(this, new Group())
@@ -191,6 +204,7 @@ class GameScene extends Group {
     if(!this.ready) return
     for(const playerId in this.game.players) if(this.step === "INTRO" && !this.getHero(playerId)) this.addHero(playerId)
     for(const hero of this.heros.children) if(!this.game.players[hero.playerId]) this.rmHero(hero.playerId)
+    this.nbPlayers = Object.keys(this.game.players).length
   }
   addHero(playerId) {
     addTo(this.heros, new Hero(
@@ -210,7 +224,7 @@ class GameScene extends Group {
 
   mayAddStar() {
     if(this.time > this.nextStarTime) {
-      addTo(this.stars, new Star(random() > .5, HEIGHT * random()))
+      addTo(this.stars, new Star(this, random() > .5 ? 1 : -1, HEIGHT * random()))
       this.nextStarTime = this.time + 1
     }
   }
@@ -349,45 +363,53 @@ class Hero extends Group {
 
     this.translation.x = x
     this.translation.y = y
-    this.width = this.height = 80
-    this.spdX = 200 * (random() > .5 ? 1 : -1)
-    this.spdY = 200 * (random() > .5 ? 1 : -1)
+    this.dirX = (random() > .5 ? 1 : -1)
+    this.dirY = (random() > .5 ? 1 : -1)
     this.score = 0
     this.paralysisEndTime = 0
 
-    const bodyImg = addTo(this, new Two.ImageSequence([
+    this.bodyImg = addTo(this, new Two.ImageSequence([
       new Two.Texture(heroBodyCanvas.get(color))
     ], 0, 0))
-    bodyImg.scale = 80 / 100
     this.faceImg = addTo(this, new Two.Sprite(
       heroFacesImg,
       0, 0,
       10, 1
     ))
-    this.faceImg.scale = 60 / 100
     this.faceImg.index = this.faceNum = floor(random() * 9)
 
-    addTo(this, new Two.Text(
+    this.nameText = addTo(this, new Two.Text(
       name,
-      0, 60,
+      0, 0,
       { fill: "black", size: 30 }
     ))
+
+    this.syncSize()
+  }
+
+  syncSize() {
+    this.width = this.height = HERO_SIZE(this.scene.nbPlayers)
+    this.bodyImg.scale = this.width / 100
+    this.faceImg.scale = this.width * .8 / 100
+    this.speed = HERO_SPEED(this.scene.nbPlayers)
+    this.nameText.translation.y = this.height / 2 + 20
   }
 
   update(time) {
+    this.syncSize()
     if(!this.isParalysed(time)) {
       this.visible = true
       this.faceImg.index = this.faceNum
-      this.translation.x += this.spdX / FPS
-      this.translation.y += this.spdY/ FPS
       const { x, y } = this.translation
-      const { spdX, spdY } = this
       const w2 = this.width / 2, h2 = this.height / 2
-      if((spdX > 0 && x > WIDTH - w2) || (spdX < 0 && x < w2)) {
-        this.spdX = -spdX
+      const { speed, dirX, dirY } = this
+      this.translation.x += speed * dirX / FPS
+      this.translation.y += speed * dirY / FPS
+      if((dirX > 0 && x > WIDTH - w2) || (dirX < 0 && x < w2)) {
+        this.dirX = -dirX
       }
-      if((spdY > 0 && y > HEIGHT - h2) || (spdY < 0 && y < h2)) {
-        this.spdY = -spdY
+      if((dirY > 0 && y > HEIGHT - h2) || (dirY < 0 && y < h2)) {
+        this.dirY = -dirY
       }
     } else {
       this.visible = (time * 4) % 1 > .5
@@ -410,16 +432,16 @@ class Hero extends Group {
     const { x: x2, y: y2 } = hero2.translation
     const hitAngle = atan2(y2 - y1, x2 - x1) / PI
     if(hitAngle >= -.25 && hitAngle <= .25) {
-      this.spdX = -abs(this.spdX)
+      this.dirX = -abs(this.dirX)
     }
     else if(hitAngle > .25 && hitAngle <= .75) {
-      this.spdY = -abs(this.spdY)
+      this.dirY = -abs(this.dirY)
     }
     else if(hitAngle >= -.75 && hitAngle < -.25) {
-      this.spdY = abs(this.spdY)
+      this.dirY = abs(this.dirY)
     }
     else {
-      this.spdX = abs(this.spdX)
+      this.dirX = abs(this.dirX)
     }
   }
 
@@ -439,7 +461,7 @@ class Hero extends Group {
 
   onJoypadInput(kwargs) {
     if(kwargs.dir !== undefined) {
-      this.spdX = abs(this.spdX) * (kwargs.dir === 0 ? -1 : 1)
+      this.dirX = abs(this.dirX) * (kwargs.dir === 0 ? -1 : 1)
     }
   }
 }
@@ -447,20 +469,29 @@ class Hero extends Group {
 
 class Star extends Two.Sprite {
 
-  constructor(dir, y) {
+  constructor(scn, dir, y) {
     super(
       urlAbsPath("assets/star.png"),
       dir ? WIDTH + 50 : -50, y
     )
-    this.width = this.height = 80
-    this.scale = 80 / 100
+    this.scene = scn
+    this.game = scn.game
 
-    this.spdX = dir ? -100 : 100
+    this.dir = dir
+
+    this.syncSize()
+  }
+
+  syncSize() {
+    this.width = this.height = STAR_SIZE(this.scene.nbPlayers)
+    this.scale = this.width / 100
+    this.speed = STAR_SPEED(this.scene.nbPlayers)
   }
 
   update(time) {
-    this.translation.x += this.spdX / FPS
-    if((this.x < -50 && this.spdX < 0) || (this.x > WIDTH + 50 && this.spdX > 0)) this.remove()
+    this.syncSize()
+    this.translation.x += this.dir * this.speed / FPS
+    if((this.x < -50 && this.dir < 0) || (this.x > WIDTH + 50 && this.dir > 0)) this.remove()
   }
 
   getHitBox() {
@@ -487,8 +518,8 @@ class Monster extends Two.Sprite {
       urlAbsPath("assets/monster.png"),
       dir ? WIDTH + 50 : -50, y
     )
-    this.width = this.height = 80
-    this.scale = 80 / 50
+    this.width = this.height = MONSTER_SIZE
+    this.scale = MONSTER_SIZE / 50
 
     this.spdX = dir ? -100 : 100
   }
