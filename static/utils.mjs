@@ -67,31 +67,30 @@ function fitTwoToEl(two, wrapperEl, kwargs) {
 
 function newPointer(two) {
 
-    const pointer = {}
     const el = two.renderer.domElement
 
-    function _getMousePos(el, evt) {
-        const pos = evt.changedTouches ? evt.changedTouches[0] : evt
+    const pointer = {
+        isDown: false,
+        x: null,
+        y: null
+    }
+    function _updPointer(isDown, pos) {
         const rect = el.getBoundingClientRect()
-        return {
-            x: (pos.clientX - rect.left) * two.width / rect.width,
-            y: (pos.clientY - rect.top) * two.height / rect.height,
-        }
+        assign(pointer, {
+            isDown: isDown === null ? pointer.isDown : isDown,
+            x: pos ? (pos.clientX - rect.left) * two.width / rect.width : null,
+            y: pos ? (pos.clientY - rect.top) * two.height / rect.height : null,
+        })
     }
 
-    for(const key of ["mousemove", "touchmove"]) {
-        el.addEventListener(key, evt => assign(pointer, _getMousePos(el, evt)))
-    }
-    for(const key of ["mousedown", "touchstart"]) {
-        el.addEventListener(key, evt => assign(pointer, {
-            isDown: true,
-            ..._getMousePos(el, evt),
-        }))
-    }
-    el.addEventListener("mouseup", () => pointer.isDown = false)
-    el.addEventListener("touchend", () => {
-        if(evt.touches.length >= 2) return
-        pointer.isDown = false
+    el.addEventListener("mousemove", evt => _updPointer(null, evt))
+    el.addEventListener("touchmove", evt => _updPointer(true, evt.changedTouches[0]))
+    el.addEventListener("mousedown", evt => _updPointer(true, evt))
+    el.addEventListener("touchstart", evt => _updPointer(true, evt.changedTouches[0]))
+    el.addEventListener("mouseup", evt => _updPointer(false, null))
+    el.addEventListener("touchend", evt => {
+        if(evt.touches.length === 0) _updPointer(false, null)
+        else _updPointer(true, evt.touches[0])
     })
 
     return pointer
