@@ -1,6 +1,7 @@
 {
-    "key": "basic_example",
-    "title": "Basic Example",
-    "description": "Catch 20 stars before the others.",
+    "key": "un_petit_noel",
+    "title": "Un Petit Noel",
+    "description": "Attrape le plus de cadeaux possible.",
+    "credits": "",
     "tags": ["simple", "quick"]
 }

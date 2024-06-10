@@ -1,4 +1,5 @@
 const { assign } = Object
+const { abs, cos, sin } = Math
 
 import Two from './two.min.mjs'
 
@@ -124,18 +125,26 @@ function newCanvas(width, height, color) {
     return canvas
 }
 
+function importImg(src) {
+    return new Promise((ok, ko) => {
+        const img = document.createElement("img")
+        img.onload = () => ok(img)
+        img.onerror = console.error
+        img.src = src
+    })
+}
+
 function newCanvasFromSrc(src) {
     const canvas = document.createElement("canvas")
-    const img = document.createElement("img")
-    img.onload = () => {
+    const fun = async () => {
+        const img = await importImg(src)
         canvas.width = img.width
         canvas.height = img.height
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height)
+        const ctx = canvas.getContext("2d")
+        ctx.drawImage(img, 0, 0)
         canvas.loaded = true
     }
-    img.onerror = console.error
-    img.src = src
-    // _enrichCanvas(canvas)
+    fun()
     return canvas
 }
 
@@ -150,26 +159,32 @@ function cloneCanvas(canvas, kwargs) {
     const nbRows = (kwargs && kwargs.row && kwargs.row[1]) || 1
     const dx = (kwargs && kwargs.dx) || 0
     const dy = (kwargs && kwargs.dy) || 0
-    const width = (kwargs && kwargs.width) || canvas.width * scaleX / nbCols
-    const height = (kwargs && kwargs.height) || canvas.height * scaleY / nbRows
+    let width = (kwargs && kwargs.width) || canvas.width * scaleX / nbCols
+    let height = (kwargs && kwargs.height) || canvas.height * scaleY / nbRows
+    const angle = (kwargs && kwargs.angle) || 0
+    let oWidth = width, dWidth = 0, oHeight = height, dHeight = 0
+    if(angle !== 0) {
+        width = oWidth * abs(cos(angle)) + oHeight * abs(sin(angle))
+        height = oHeight * abs(cos(angle)) + oWidth * abs(sin(angle))
+        dWidth = (oWidth - width) / 2
+        dHeight = (oHeight - height) / 2
+    }
     const res = document.createElement("canvas")
     assign(res, { width, height })
     const ctx = res.getContext("2d")
     ctx.save()
-    if(flipX) {
-        ctx.translate(width, 0)
-        ctx.scale(-1, 1)
-    }
-    if(flipY) {
-        ctx.translate(0, height)
-        ctx.scale(1, -1)
-    }
+    ctx.translate(width/2, height/2)
+    if(flipX) ctx.scale(-1, 1)
+    if(flipY) ctx.scale(1, -1)
     if(numCol !== 0 || dx !== 0) ctx.translate(dx - width * numCol, 0)
     if(numRow !== 0 || dy !== 0) ctx.translate(0, dy - height * numRow)
     if(scaleX !== 1) ctx.scale(scaleX, 1)
     if(scaleY !== 1) ctx.scale(1, scaleY)
-    ctx.drawImage(canvas, 0, 0)
+    if(angle) ctx.rotate(angle)
+    ctx.drawImage(canvas, -oWidth/2, -oHeight/2)
     ctx.restore()
+    res.dWidth = dWidth
+    res.dHeight = dHeight
     return res
 }
 
@@ -186,9 +201,30 @@ function colorizeCanvas(canvas, color) {
     ctx.restore()
 }
 
-function addCanvas(canvas, canvas2, x=0, y=0) {
-    const ctx = canvas.getContext("2d")
-    ctx.drawImage(canvas2, x, y)
+function newAnims(animPath) {
+    const anims = {}
+    const fun = async () => {
+        const res = await fetch(animPath)
+        const animsSpec = await res.json()
+        const { width, height, srcs } = animsSpec
+        const basePath = animPath.substring(0, animPath.lastIndexOf('/'))
+        const imgs = await Promise.all(srcs.map(src => importImg(basePath + '/' + src)))
+        for(const [animName, animSpec] of Object.entries(animsSpec.anims)) {
+            anims[animName] = animSpec.map(frameSpec => {
+                const can = newCanvas(width, height)
+                const ctx = can.getContext("2d")
+                for(let imgSpec of frameSpec) {
+                    let srcImg = imgs[imgSpec[0]], x = imgSpec[1], y = imgSpec[2], angle = imgSpec[3]
+                    if(angle !== 0) srcImg = cloneCanvas(srcImg, { angle })
+                    ctx.drawImage(srcImg, x + (srcImg.dWidth || 0), y + (srcImg.dHeight || 0))
+                }
+                return can
+            })
+        }
+        anims.loaded = true
+    }
+    fun()
+    return anims
 }
 
 function getHitBox(obj) {
@@ -222,7 +258,7 @@ export {
     newCanvasFromSrc,
     cloneCanvas,
     colorizeCanvas,
-    addCanvas,
+    newAnims,
     checkAllLoadsDone,
     checkHit,
 }

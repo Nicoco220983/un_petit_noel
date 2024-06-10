@@ -1,0 +1,36 @@
+<html>
+<head>
+    <title>Test Anims</title>
+</head>
+<body>
+    <div><input id="base_url" width="500" placeholder="Base URL"> <input id="anim_url" width="500" placeholder="Anim URL"></div>
+    <div><input id="anim_name" width="200" placeholder="Anim name"></div>
+    <div id="two" style="border: 1px solid black"></div>
+    <script type="module">
+        import Two from './two.min.mjs'
+        import * as utils from './utils.mjs'
+        const WIDTH = 1000, HEIGHT = 1000
+        const two = new Two({
+            type: Two.Types.webgl,
+            width: WIDTH,
+            height: HEIGHT,
+        })
+        two.appendTo(document.getElementById("two"))
+        two.play()
+        let imgSeq = null
+        async function initAnim() {
+            if(imgSeq) imgSeq.remove()
+            const baseUrl = document.getElementById("base_url").value
+            const animUrl = document.getElementById("anim_url").value
+            const animName = document.getElementById("anim_name").value
+            const anims = utils.newAnims(baseUrl + '/' + animUrl)
+            while(true) {
+                if(anims.loaded) break
+                await new Promise(r => setTimeout(r, 100))
+            }
+            imgSeq = two.makeImageSequence(anims[animName].map(img => new Two.Texture(img)), WIDTH/2, HEIGHT/2, 2, true)
+        }
+        document.getElementById("two").onclick = initAnim
+    </script>
+</body>
+</html>

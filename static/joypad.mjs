@@ -103,6 +103,7 @@ class JoypadScene extends Group {
   initSprites() {
     this.addWaitingTexts()
     this.addArrowButtons()
+    this.addThrowButton()
     this.addReadyButton()
     this.addRestartButton()
   }
@@ -118,11 +119,16 @@ class JoypadScene extends Group {
 
   addArrowButtons() {
     this.arrowButtons = []
-    for(const dir of [0, 1]) {
-      const btn = addTo(this.buttons, new ArrowButton(this, dir))
+    for(const dirX of [-1, 1]) for(const dirY of [-1, 1]) {
+      const btn = addTo(this.buttons, new ArrowButton(this, dirX, dirY))
       btn.visible = false
       this.arrowButtons.push(btn)
     }
+  }
+
+  addThrowButton() {
+    this.throwButton = addTo(this.buttons, new ThrowButton(this, WIDTH/2, HEIGHT/2))
+    this.throwButton.visible = false
   }
 
   addReadyButton() {
@@ -144,6 +150,7 @@ class JoypadScene extends Group {
 
     this.waitingTexts.visible = step === "WAITING"
     for(const btn of this.arrowButtons) btn.visible = (step === "INTRO" || step === "GAME" || step === "VICTORY")
+    this.throwButton.visible = step === "GAME"
     this.readyButton.visible = step === "INTRO"
     this.readyButton.setReady(false)
     this.restartButton.visible = false
@@ -183,11 +190,11 @@ class JoypadScene extends Group {
 const arrowCanvas = {
   base: addToLoads(utils.newCanvasFromSrc(urlAbsPath("assets/joypad_arrow.png"))),
   baseClicked: addToLoads(utils.newCanvasFromSrc(urlAbsPath("assets/joypad_arrow_clicked.png"))),
-  get: function(dir, clicked, color) {
-    const key = `trans:${dir},${clicked}`
+  get: function(clicked, dirX, dirY, color) {
+    const key = `trans:${clicked},${dirX},${dirY}`
     if(!this[key]) {
       const base = clicked ? this.baseClicked : this.base
-      this[key] = utils.cloneCanvas(base, { flipX: (dir === 1)})
+      this[key] = utils.cloneCanvas(base, { flipX: (dirX === 1), flipY: (dirY === 1)})
       if(color) utils.colorizeCanvas(this[key], color)
     }
     return this[key]
@@ -196,20 +203,22 @@ const arrowCanvas = {
 
 
 class ArrowButton extends Two.ImageSequence {
-  constructor(scn, dir) {
+  constructor(scn, dirX, dirY) {
     super(
       [
-        new Two.Texture(arrowCanvas.get(dir, false, scn.joypad.player.color)),
-        new Two.Texture(arrowCanvas.get(dir, true, scn.joypad.player.color)),
+        new Two.Texture(arrowCanvas.get(false, dirX, dirY, scn.joypad.player.color)),
+        new Two.Texture(arrowCanvas.get(true, dirX, dirY, scn.joypad.player.color)),
       ],
-      WIDTH / 4 * (dir ? 3 : 1),
-      HEIGHT / 2
+      (dirX === -1) ? (HEIGHT / 4) : (WIDTH - HEIGHT / 4),
+      HEIGHT / 4 * (dirY === 1 ? 3 : 1),
     )
-    this.scale = min(WIDTH / 2, HEIGHT) / 200 * .8
+    this.scale = HEIGHT / 2 / 200 * .8
     this.scene = scn
     this.joypad = scn.joypad
-    this.dir = dir
+    this.dirX = dirX
+    this.dirY = dirY
     this.lastClickTime = -1
+    this.lastSendTime = -1
   }
   update(time) {
     this.time = time
@@ -217,15 +226,18 @@ class ArrowButton extends Two.ImageSequence {
   }
   getHitBox() {
     return {
-      left: this.dir ? WIDTH / 2 : 0,
-      top: 0,
+      left: this.dirX === -1 ? 0 : WIDTH / 2,
+      top: this.dirY === -1 ? 0 : HEIGHT / 2,
       width: WIDTH / 2,
-      height: HEIGHT,
+      height: HEIGHT / 2,
     }
   }
   click(pointer) {
     this.lastClickTime = this.time
-    if(!pointer.prevIsDown) this.joypad.sendInput({ dir: this.dir })
+    if(this.time - this.lastSendTime > .1) {
+      this.joypad.sendInput({ dirX: this.dirX, dirY: this.dirY })
+      this.lastSendTime = this.time
+    }
   }
 }
 
@@ -316,6 +328,21 @@ class RestartButton extends TextButton {
     super.click(pointer)
     if(!pointer.prevIsDown) {
       this.joypad.sendInput({ restart: true })
+    }
+  }
+}
+
+
+class ThrowButton extends TextButton {
+  constructor(scn, x, y) {
+    super("THROW", "red", x, y)
+    this.scene = scn
+    this.joypad = scn.joypad
+  }
+  click(pointer) {
+    super.click(pointer)
+    if(!pointer.prevIsDown) {
+      this.joypad.sendInput({ throw: true })
     }
   }
 }
